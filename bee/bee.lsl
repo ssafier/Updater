@@ -13,7 +13,7 @@ integer handle;
 list responses;
 
 #define STRIDE 4
-#define ITEM_NAME 0
+#define ITEM_ID 0
 #define ITEM_VERSION 1
 #define ITEM_LOCATION 2
 #define ITEM_KEY 3
@@ -66,7 +66,6 @@ default {
 	items += [(string) r[0], (float)(string) r[1], (vector)(string) r[2], (key)(string)r[3]];
       }
     }
-    items = filter(PowerRack, 0.6); // number is THIS version
     state update;
   }
 }

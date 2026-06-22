@@ -17,6 +17,8 @@ integer scriptkey;
 integer update_channel;
 key update_bee;
 
+integer count;
+
 string received_item_type;
 string received_item_name;
 
@@ -25,7 +27,7 @@ initialize() {
   initialized = TRUE;
   scripts = objects = textures = animations = notecards = [];
   integer i;
-  integer count = llGetInventoryNumber(INVENTORY_SCRIPT);
+  count = llGetInventoryNumber(INVENTORY_SCRIPT);
   for (i = 0; i < count; ++i) {
     string name = llGetInventoryName(INVENTORY_SCRIPT, i);
     if (name != llGetScriptName()) {
@@ -67,9 +69,7 @@ default {
     initialize();
     state listening;
   }
-}
-
-state listening {
+  
   changed(integer x) {
     if (x & CHANGED_INVENTORY) {
       initialized = FALSE;
@@ -77,9 +77,11 @@ state listening {
       state default;
     }
   }
-  state_exit() { llListenRemove(handle); }
+}
+
+state listening {
   state_entry() {
-    debug(0, llGetObjectName() + " starting.");
+    debug(llGetObjectName() + " starting.");
     integer l = llGetListLength(scripts);
     integer i;
     for (i = 0; i < l; ++i) {
@@ -89,17 +91,24 @@ state listening {
     handle = llListen(UPDATE_CHANNEL, UPDATER_NAME, NULL_KEY, "");
   }
   
+  changed(integer x) {
+    if (x & CHANGED_INVENTORY) {
+      initialized = FALSE;
+      llSleep(1.0);
+      state default;
+    }
+  }
+
   listen(integer chan, string name, key xyzzy, string msg) {
     list cmd = llParseString2List(msg, ["|"],[]);
       switch ((string) cmd[0]) {
       case "locate": {
-	
 	llRegionSayTo((key) cmd[1], (integer) cmd[2],
 		      llGetObjectName() + "|" + READ_VERSION + "|"+ (string) llGetPos() + "|" + (string) llGetKey());
 	break;
       }
       case "update": {
-	scriptkey = (integer )(string) cmd[1] + (integer) ("0x"+llGetSubString((string) item_key,-2,-1));
+	scriptkey = (integer )(string) cmd[1] + (integer) ("0x"+llGetSubString((string) llGetKey(),-2,-1));
 	update_channel = (integer) (string) cmd[2];
 	update_bee = xyzzy;
 	state doUpdate;
@@ -119,23 +128,29 @@ state doUpdate {
   state_entry() {
     handle = llListen(update_channel, "", update_bee, "");
     llSetRemoteScriptAccessPin(scriptkey);
-    llSay(-update_channel, "ready");
+    llRegionSayTo(update_bee, -update_channel, "ready");
   }
   listen(integer chan, string name, key xyzzy, string msg) {
     list cmd = llParseString2List(msg, ["|"],[]);
     switch ((string) cmd[0]) {
     case "version": {
-      WRITE_VERSION(cmd[1]);
+      if (WRITE_VERSION(cmd[1]) == 0) {
+	llRegionSayTo(update_bee, -update_channel, "ack|version");
+      } else {
+	llRegionSayTo(update_bee, -update_channel, "fail|version");
+      }
       break;
     }
     case "start": {
-      integer count = llGetInventoryNumber(INVENTORY_SCRIPT);
-      for (i = 0; i < count; ++i) {
+      integer c = llGetInventoryNumber(INVENTORY_SCRIPT);
+      integer i;
+      for (i = 0; i < c; ++i) {
 	string name = llGetInventoryName(INVENTORY_SCRIPT, i);
 	if (name != llGetScriptName()) {
 	  llSetScriptState(name,TRUE);
 	}
       }
+      llRegionSayTo(update_bee, -update_channel, "ack|start");
       break;
     }
     case "stop": {
@@ -144,6 +159,7 @@ state doUpdate {
 	--i;
 	llSetScriptState((string)scripts[i],FALSE);
       }
+      llRegionSayTo(update_bee, -update_channel, "ack|stop");
       break;
     }
     case "verify": {
@@ -185,7 +201,7 @@ state doUpdate {
       }
       default: break;
       }
-      llRegionSayTo(updater_id, -update_channel,"deleted");
+      llRegionSayTo(update_bee, -update_channel,"deleted");
       break;
     }
     case "restart": {
@@ -196,20 +212,19 @@ state doUpdate {
     default: break;
     }
   }
-    timer() {
-      // Check if the item we are waiting for has finally arrived
-      integer item = llGetInventoryType(received_item_name);
-      if (item != INVENTORY_NONE &&
-	  ((item == INVENTORY_SCRIPT && received_item_type == "script") ||
-	   (item == INVENTORY_NOTECARD && received_item_type == "notecard") ||
-	   (item == INVENTORY_TEXTURE && received_item_type == "texture") ||
-	   (item == INVENTORY_ANIMATION && received_item_type == "animation") ||
-	   (item == INVENTORY_OBJECT && received_item_type == "object"))) {
-	llSetTimerEvent(0.0);
-	llRegionSayTo(updater_id, -update_channel,
-		      "ack|"+received_item_type+"|"+received_item_name);
-      }
-    }
+  timer() {
+    // Check if the item we are waiting for has finally arrived
+    integer item = llGetInventoryType(received_item_name);
+    if (item != INVENTORY_NONE &&
+	((item == INVENTORY_SCRIPT && received_item_type == "script") ||
+	 (item == INVENTORY_NOTECARD && received_item_type == "notecard") ||
+	 (item == INVENTORY_TEXTURE && received_item_type == "texture") ||
+	 (item == INVENTORY_ANIMATION && received_item_type == "animation") ||
+	 (item == INVENTORY_OBJECT && received_item_type == "object"))) {
+      llSetTimerEvent(0.0);
+      llRegionSayTo(update_bee, -update_channel,
+		    "ack|"+received_item_type+"|"+received_item_name);
     }
   }
 }
+

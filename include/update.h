@@ -1,7 +1,6 @@
 #ifndef UPDATE_CHANNEL
 #define UPDATE_CHANNEL 120125
 #endif
-#ifndef
 
 #ifndef UPDATER_NAME
 #define UPDATER_NAME "Update Bee"
@@ -20,9 +19,9 @@
 
 // Updater
 #define flyBee 500
-#define updateItem 501
+#define updateItems 501
 #define incrementUpdate 502
 
-#define sUpdateItem "501"
+#define sUpdateItems "501"
 #define sIncrementUpdate "502"
 

@@ -16,11 +16,87 @@ integer pin;
 integer channel;
 integer handle;
 
+integer index;
+integer skip_item;
+integer count;
+
 GLOBAL_DATA;
+
+process() {
+  string line = llGetNotecardLineSync(NOTECARD_NAME, index);
+  key xyzzy = NULL_KEY;
+  if (line == EOF)  {
+    NEXT_STATE;
+    return;
+  }  else if (line != NAK)  {
+    list parsed = llParseString2List(line,["|"],[]);
+    string cmd = (string) parsed[0];
+    if (skip_item && cmd != "item") cmd = "";
+    switch (cmd) {
+    case "version": { // version check
+      float v = (float)(string)parsed[1];
+      if (v >= version) {
+	NEXT_STATE;
+	return;
+      }
+      break;
+    }
+    case "item": { // test item name and skip til end
+      string it = (string) parsed[1];
+      skip_item = ((it != "default") && (item_name != it));
+      break;
+    }
+    case "add": {
+      string type = (string) parsed[1];
+      string itemName = (string) parsed[2];
+
+      if (llGetInventoryType(item_name) == INVENTORY_NONE) {
+	llOwnerSay("Warning: '" + item_name + "' not found in updater. Skipping.");
+	// Fake an ACK to ourselves to keep the chain moving
+	++index;
+	process();
+	return;
+      } else {
+	if (type == "script") {
+	  llRemoteLoadScriptPin(item_key, item_name, pin, FALSE, 0);
+	} else {
+	  llGiveInventory(item_key, item_name);
+	}
+	// Send the VERIFY command so the receiver knows to watch for it and ACK
+	llRegionSayTo(item_key, channel, "verify|" + itemName);
+      }
+      break;
+    }
+    case "delete": {
+      llRegionSayTo(item_key, channel,
+		    "delete|"+ (string) parsed[1] + "|" + (string) parsed[2]);
+      break;
+    }
+    case "stop": {
+      llRegionSayTo(item_key, channel, "stop");
+      break;
+    }
+    case "start": {
+      llRegionSayTo(item_key, channel, "start");
+      break;
+    }
+    default: {
+      llSay(0, "Unknown command.");
+      break;
+    }
+    }
+  }
+  if (index <= count) {
+    ++index;
+  } else {
+    NEXT_STATE;
+  }
+}
+
 
 default {
   link_message(integer from, integer chan, string msg, key xyzzy) {
-    if (chan != updateItem) return;
+    if (chan != updateItems) return;
     GET_CONTROL_GLOBAL;
     string item_name;
     POP(item_name);
@@ -49,57 +125,20 @@ default {
       read_key = llGetNumberOfNotecardLines(NOTECARD_NAME);
       break;
     }
+    case "fail": 
+    case "ack": {
+      process();
+      break;
+    }
+    default: break;
+    }
   }
 
   dataserver(key request, string data) {
     if (request != read_key) return;
-    integer count = (integer)data;
-    integer index;
-    key xyzzy = NULL_KEY;
-    integer skip_item = FALSE;
-    
-    for (index = 0; index <= count; ++index) {
-      string line = llGetNotecardLineSync(NOTECARD_NAME, index);
-      if (line == EOF)  {
-	NEXT_STATE;
-	return;
-      }  else if (line != NAK)  {
-	list parsed = llParseString2List(line,["|"],[]);
-	string cmd = (string) parsed[0];
-	if (skip_item && cmd != "item") cmd = "";
-	switch (cmd) {
-	case "version": { // version check
-	  float v = (float)(string)parsed[1];
-	  if (v >= version) {
-	    NEXT_STATE;
-	    return;
-	  }
-	  break;
-	}
-	case "item": { // test item name and skip til end
-	  string it = (string) cmd[1];
-	  skip_item = ((it != "default") && (item_name != it));
-	  break;
-	}
-	case "add": {
-	  break;
-	}
-	case "delete": {
-	  break;
-	}
-	case "stop": {
-	  llRegionSayTo(item_key, channel, "stop");
-	  break;
-	}
-	case "start": {
-	  llRegionSayTo(item_key, channel, "start");
-	  break;
-	}
-	default: {
-	  llSay(0, "Unknown command.");
-	  break;
-	}
-      }
-    }
+    count = (integer)data;
+    skip_item = FALSE;
+    index = 0;
+    process();
   }
 }
