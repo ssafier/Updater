@@ -14,13 +14,15 @@
 #define NOTECARD_NAME "!UPDATE"
 #endif
 
-#define READ_VERSION llLinksetDataRead("version_4_bee")
-#define WRITE_VERSION(x) llLinksetDataWrite("version-4-bee",(string) x)
+#define VERSION "version_4_bee"
+#define READ_VERSION llLinksetDataRead(VERSION)
+#define WRITE_VERSION(x) llLinksetDataWrite(VERSION,(string) x)
 
 // Updater
 #define flyBee 500
 #define updateItems 501
 #define incrementUpdate 502
+#define DONE 510
 
 #define sUpdateItems "501"
 #define sIncrementUpdate "502"

@@ -41,12 +41,28 @@ default {
     responses = [];
     llSetClickAction(CLICK_ACTION_TOUCH);
     llSetText("Click to update " + ITEM_NAME + ".",<1,1,0>,1);
-    llSay(0, "Touch to update SPS equipment.");
+
+    llSetKeyframedMotion([], []);
+    llSetStatus(STATUS_PHYSICS, FALSE);
+    vector currentPos = llGetPos();
+    list ray = llCastRay(currentPos+<0,0,0.1>,currentPos - <0,0,25>, []);
+    vector hit = (vector) ray[1];
+    vector targetPos = <currentPos.x, currentPos.y, hit.z + 1.0>;
+    llSetRegionPos(targetPos);
+    llSetKeyframedMotion([<0.0, 0.0, 0.25>, ZERO_ROTATION, .5,
+			  <0.0, 0.0, -0.125>, ZERO_ROTATION, .5,
+			  <0.0, 0.0, -0.125>, ZERO_ROTATION, .5,
+			  <0.0, 0.0, -0.25>, ZERO_ROTATION, .5,
+			  <0.0, 0.0, 0.125>, ZERO_ROTATION, .5,
+			  <0.0, 0.0, 0.125>, ZERO_ROTATION, .5],
+			 [KFM_MODE, KFM_PING_PONG]);
   }
   
   touch_start(integer x) {
     handle = llListen(channel,"",NULL_KEY,"");
     llSetTimerEvent(5);
+    debug("touch "+(string) UPDATE_CHANNEL);
+    llSetText("Locating " + ITEM_NAME + ".",<1,1,0>,1);
     llRegionSay(UPDATE_CHANNEL,"locate|"+(string)llGetKey()+"|"+(string) channel);
   }
 
@@ -57,21 +73,23 @@ default {
   timer() {
     llSetTimerEvent(0);
     integer l = llGetListLength(responses);
-    llSay(0,"timer "+(string) l);
     integer i;
     items = [];
     for (i = 0; i < l; ++i) { 
       list r = llParseString2List((string) responses[i], ["|"],[]);
       if (llListFindList(items,[(vector)(string)r[2]]) == -1) {
-	items += [(string) r[0], (float)(string) r[1], (vector)(string) r[2], (key)(string)r[3]];
+	items += [(string) r[0], (float)(string) r[1], ((vector)(string) r[2]) + <0,0,1>, (key)(string)r[3]];
       }
     }
+    llSetKeyframedMotion([], []);
     state update;
   }
 }
 
 state update {
   state_entry() {
+    debug("update "+(string)llGetListLength(items) + " " + llDumpList2String(items, " "));
+    llSetText("Updating " + ITEM_NAME + ".",<1,1,0>,1);
     index = 0;
     home = llGetPos();
     if (index < llGetListLength(items))
@@ -83,8 +101,11 @@ state update {
 		      (key)items[index + ITEM_KEY]);
   }
   link_message(integer from, integer chan, string msg, key xyzzy) {
+    if (chan == DONE) state default;
     if (chan  != incrementUpdate) return;
+    debug("increment");
     index += STRIDE;
+    debug((string) index + " " + (string) llGetListLength(items));
     if (index < llGetListLength(items)) {
       llMessageLinked(LINK_THIS, flyBee,
 		      sUpdateItems + "+" + sIncrementUpdate + "|" +
@@ -93,7 +114,8 @@ state update {
 		      (string)(float)items[index + 1],
 		      (key)items[index + 3]);
     } else {
-      llMessageLinked(LINK_THIS, flyBee, "|" + (string) home, NULL_KEY);
+      debug("home");
+      llMessageLinked(LINK_THIS, flyBee, "510|" + (string) home, NULL_KEY);
     }
   }    
 }

@@ -28,8 +28,10 @@ process() {
   if (line == EOF)  {
     NEXT_STATE;
     return;
-  }  else if (line != NAK)  {
+  }
+  if (line != NAK)  {
     list parsed = llParseString2List(line,["|"],[]);
+    debug(line);
     string cmd = (string) parsed[0];
     if (skip_item && cmd != "item") cmd = "";
     switch (cmd) {
@@ -39,6 +41,7 @@ process() {
 	NEXT_STATE;
 	return;
       }
+      llRegionSayTo(item_key, channel, "version|" + (string) version);
       break;
     }
     case "item": { // test item name and skip til end
@@ -47,23 +50,26 @@ process() {
       break;
     }
     case "add": {
+      debug(line);
       string type = (string) parsed[1];
       string itemName = (string) parsed[2];
 
-      if (llGetInventoryType(item_name) == INVENTORY_NONE) {
-	llOwnerSay("Warning: '" + item_name + "' not found in updater. Skipping.");
+      if (llGetInventoryType(itemName) == INVENTORY_NONE) {
+	llOwnerSay("Warning: '" + itemName + "' not found in updater. Skipping.");
 	// Fake an ACK to ourselves to keep the chain moving
 	++index;
 	process();
 	return;
       } else {
+	debug("doing add");
 	if (type == "script") {
-	  llRemoteLoadScriptPin(item_key, item_name, pin, FALSE, 0);
+	  debug("add is script");
+	  llRemoteLoadScriptPin(item_key, itemName, pin, FALSE, 0);
 	} else {
-	  llGiveInventory(item_key, item_name);
+	  llGiveInventory(item_key, itemName);
 	}
 	// Send the VERIFY command so the receiver knows to watch for it and ACK
-	llRegionSayTo(item_key, channel, "verify|" + itemName);
+	llRegionSayTo(item_key, channel, "verify|" + type + "|" + itemName);
       }
       break;
     }
@@ -80,17 +86,20 @@ process() {
       llRegionSayTo(item_key, channel, "start");
       break;
     }
+    case "": {
+      ++index;
+      process();
+      return;
+    }
     default: {
-      llSay(0, "Unknown command.");
-      break;
+      llSay(0, "Unknown command."+cmd);
+      ++index;
+      process();
+      return;
     }
     }
   }
-  if (index <= count) {
-    ++index;
-  } else {
-    NEXT_STATE;
-  }
+  ++index;
 }
 
 
@@ -98,7 +107,6 @@ default {
   link_message(integer from, integer chan, string msg, key xyzzy) {
     if (chan != updateItems) return;
     GET_CONTROL_GLOBAL;
-    string item_name;
     POP(item_name);
     string temp;
     POP(temp);
@@ -108,6 +116,7 @@ default {
     handle = llListen(-channel, "", item_key, "");
     pin = (integer) ("0x"+llGetSubString((string) item_key,-2,-1)) +
       (channel & 0xFF00);
+    debug("update");
     llRegionSayTo(item_key,UPDATE_CHANNEL,
 		  "update|"+
 		  (string)(channel & 0xFF00) + "|" + (string) channel);

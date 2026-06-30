@@ -53,9 +53,12 @@ initialize() {
   for (i = 0; i < count; ++i) {
     notecards += [llGetInventoryName(INVENTORY_NOTECARD, i)];
   }
-  if (llLinksetDataFindKeys("version_4_bee",0,1) == []) {
-    if (WRITE_VERSION(0) != 0) {
-      llSay(0, "Version data creation failed.  This shouldn't happen.");
+  if (llLinksetDataFindKeys("version_4_bee",0,10) == []) {
+    debug((string) llGetListLength(llLinksetDataFindKeys(VERSION,0,10)) + " " +
+	  llDumpList2String(llLinksetDataFindKeys(VERSION,0,1), ","));
+    integer x = WRITE_VERSION(0);
+    if (x != 0) {
+      llSay(0, "Version data creation failed.  This shouldn't happen. " + (string) x);
     }
   }
 }
@@ -103,11 +106,14 @@ state listening {
     list cmd = llParseString2List(msg, ["|"],[]);
       switch ((string) cmd[0]) {
       case "locate": {
+	debug("locate "+(string) cmd[1] + " " + (string) cmd[2] + " " +
+	      llGetObjectName() + "|" + READ_VERSION + "|"+ (string) llGetPos() + "|" + (string) llGetKey());
 	llRegionSayTo((key) cmd[1], (integer) cmd[2],
 		      llGetObjectName() + "|" + READ_VERSION + "|"+ (string) llGetPos() + "|" + (string) llGetKey());
 	break;
       }
       case "update": {
+	debug("update "+msg);
 	scriptkey = (integer )(string) cmd[1] + (integer) ("0x"+llGetSubString((string) llGetKey(),-2,-1));
 	update_channel = (integer) (string) cmd[2];
 	update_bee = xyzzy;
@@ -128,9 +134,11 @@ state doUpdate {
   state_entry() {
     handle = llListen(update_channel, "", update_bee, "");
     llSetRemoteScriptAccessPin(scriptkey);
+    debug("ready");
     llRegionSayTo(update_bee, -update_channel, "ready");
   }
   listen(integer chan, string name, key xyzzy, string msg) {
+    debug(msg);
     list cmd = llParseString2List(msg, ["|"],[]);
     switch ((string) cmd[0]) {
     case "version": {
@@ -201,7 +209,7 @@ state doUpdate {
       }
       default: break;
       }
-      llRegionSayTo(update_bee, -update_channel,"deleted");
+      llRegionSayTo(update_bee, -update_channel,"ack|deleted|"+(string)cmd[2]);
       break;
     }
     case "restart": {
@@ -215,6 +223,7 @@ state doUpdate {
   timer() {
     // Check if the item we are waiting for has finally arrived
     integer item = llGetInventoryType(received_item_name);
+    debug((string) item + " " + received_item_type);
     if (item != INVENTORY_NONE &&
 	((item == INVENTORY_SCRIPT && received_item_type == "script") ||
 	 (item == INVENTORY_NOTECARD && received_item_type == "notecard") ||
@@ -222,6 +231,7 @@ state doUpdate {
 	 (item == INVENTORY_ANIMATION && received_item_type == "animation") ||
 	 (item == INVENTORY_OBJECT && received_item_type == "object"))) {
       llSetTimerEvent(0.0);
+      debug("verified");
       llRegionSayTo(update_bee, -update_channel,
 		    "ack|"+received_item_type+"|"+received_item_name);
     }
