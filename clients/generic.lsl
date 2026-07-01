@@ -9,6 +9,7 @@ list objects;
 list textures;
 list animations;
 list notecards;
+list sounds;
 
 integer initialized = FALSE;
 
@@ -25,7 +26,7 @@ string received_item_name;
 initialize() {
   if (initialized) return;
   initialized = TRUE;
-  scripts = objects = textures = animations = notecards = [];
+  sounds = scripts = objects = textures = animations = notecards = [];
   integer i;
   count = llGetInventoryNumber(INVENTORY_SCRIPT);
   for (i = 0; i < count; ++i) {
@@ -40,6 +41,10 @@ initialize() {
   count = llGetInventoryNumber(INVENTORY_ANIMATION);
   for (i = 0; i < count; ++i) {
     animations += [llGetInventoryName(INVENTORY_ANIMATION, i)];
+  }
+  count = llGetInventoryNumber(INVENTORY_SOUND);
+  for (i = 0; i < count; ++i) {
+    sounds += [llGetInventoryName(INVENTORY_SOUND, i)];
   }
   count = llGetInventoryNumber(INVENTORY_OBJECT);
   for (i = 0; i < count; ++i) {
@@ -197,6 +202,11 @@ state doUpdate {
 	  llRemoveInventory((string)cmd[2]);
 	break;
       }
+      case "sound": {
+	if (llListFindList(sounds,[(string)cmd[2]]) != -1)
+	  llRemoveInventory((string)cmd[2]);
+	break;
+      }
       case "animation": {
 	if (llListFindList(animations,[(string)cmd[2]]) != -1)
 	  llRemoveInventory((string)cmd[2]);
@@ -226,6 +236,7 @@ state doUpdate {
     debug((string) item + " " + received_item_type);
     if (item != INVENTORY_NONE &&
 	((item == INVENTORY_SCRIPT && received_item_type == "script") ||
+	 (item == INVENTORY_SOUND && received_item_type == "sound") ||
 	 (item == INVENTORY_NOTECARD && received_item_type == "notecard") ||
 	 (item == INVENTORY_TEXTURE && received_item_type == "texture") ||
 	 (item == INVENTORY_ANIMATION && received_item_type == "animation") ||
