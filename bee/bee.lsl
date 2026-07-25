@@ -8,6 +8,10 @@
 #define ITEM_NAME ""
 #endif
 
+#ifndef UP_DIST
+#define UP_DIST <0,0,1>
+#endif
+
 integer channel;
 integer handle;
 list responses;
@@ -72,13 +76,19 @@ default {
 
   timer() {
     llSetTimerEvent(0);
+    debug("locations"+llDumpList2String(responses," "));
     integer l = llGetListLength(responses);
+    if (l == 0) {
+      llSay(0, "No items found.");
+      llSetText("Click to update " + ITEM_NAME + ".",<1,1,0>,1);
+      return;
+    }
     integer i;
     items = [];
     for (i = 0; i < l; ++i) { 
       list r = llParseString2List((string) responses[i], ["|"],[]);
       if (llListFindList(items,[(vector)(string)r[2]]) == -1) {
-	items += [(string) r[0], (float)(string) r[1], ((vector)(string) r[2]) + <0,0,1>, (key)(string)r[3]];
+	items += [(string) r[0], (float)(string) r[1], ((vector)(string) r[2]) + UP_DIST, (key)(string)r[3]];
       }
     }
     llSetKeyframedMotion([], []);

@@ -16,19 +16,21 @@ integer pin;
 integer channel;
 integer handle;
 
-integer index;
+integer line_index;
 integer skip_item;
 integer count;
 
 GLOBAL_DATA;
 
 process() {
-  string line = llGetNotecardLineSync(NOTECARD_NAME, index);
+  string line = llGetNotecardLineSync(NOTECARD_NAME, line_index);
   key xyzzy = NULL_KEY;
   if (line == EOF)  {
+    llRegionSayTo(item_key, channel, "restart|");
     NEXT_STATE;
     return;
   }
+  // NAK's are rare, so just really ignore them
   if (line != NAK)  {
     list parsed = llParseString2List(line,["|"],[]);
     debug(line);
@@ -57,7 +59,7 @@ process() {
       if (llGetInventoryType(itemName) == INVENTORY_NONE) {
 	llOwnerSay("Warning: '" + itemName + "' not found in updater. Skipping.");
 	// Fake an ACK to ourselves to keep the chain moving
-	++index;
+	++line_index;
 	process();
 	return;
       } else {
@@ -78,6 +80,13 @@ process() {
 		    "delete|"+ (string) parsed[1] + "|" + (string) parsed[2]);
       break;
     }
+      // delete and add if it exists
+    case "replace": {
+      llRegionSayTo(item_key, channel, "test|" +
+		    (string) parsed[1] + "|" +
+		    (string) parsed[2]);
+      break;
+    }
     case "stop": {
       llRegionSayTo(item_key, channel, "stop");
       break;
@@ -87,19 +96,19 @@ process() {
       break;
     }
     case "": {
-      ++index;
+      ++line_index;
       process();
       return;
     }
     default: {
       llSay(0, "Unknown command."+cmd);
-      ++index;
+      ++line_index;
       process();
       return;
     }
     }
   }
-  ++index;
+  ++line_index;
 }
 
 
@@ -134,10 +143,30 @@ default {
       read_key = llGetNumberOfNotecardLines(NOTECARD_NAME);
       break;
     }
-    case "fail": 
+    case "fail":  
     case "ack": {
       process();
       break;
+    }
+    case "success": {
+      string type = (string) parsed[1];
+      string itemName = (string) parsed[2];
+
+      if (llGetInventoryType(itemName) == INVENTORY_NONE) {
+	llOwnerSay("Warning: '" + itemName + "' not found in updater. Skipping replacement.");
+	process();
+	return;
+      } else {
+	debug("doing replace");
+	if (type == "script") {
+	  debug("replace is script");
+	  llRemoteLoadScriptPin(item_key, itemName, pin, FALSE, 0);
+	} else {
+	  llGiveInventory(item_key, itemName);
+	}
+	// Send the VERIFY command so the receiver knows to watch for it and ACK
+	llRegionSayTo(item_key, channel, "verify|" + type + "|" + itemName);
+      }
     }
     default: break;
     }
@@ -147,7 +176,7 @@ default {
     if (request != read_key) return;
     count = (integer)data;
     skip_item = FALSE;
-    index = 0;
+    line_index = 0;
     process();
   }
 }

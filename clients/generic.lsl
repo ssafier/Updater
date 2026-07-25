@@ -185,6 +185,44 @@ state doUpdate {
       llSetTimerEvent(0);
       break;
     }
+    case "test": {
+      integer found;
+      switch((string) cmd[1]) {
+      case "script": {
+	found = (llListFindList(scripts,[(string)cmd[2]]) != -1);
+	break;
+      }
+      case "notecard": {
+	found = (llListFindList(notecards,[(string)cmd[2]]) != -1);
+	break;
+      }
+      case "texture": {
+	found = (llListFindList(textures,[(string)cmd[2]]) != -1);
+	break;
+      }
+      case "sound": {
+	found = (llListFindList(sounds,[(string)cmd[2]]) != -1);
+	break;
+      }
+      case "animation": {
+	found = (llListFindList(animations,[(string)cmd[2]]) != -1);
+	break;
+      }
+      case "object": {
+	found = (llListFindList(objects,[(string)cmd[2]]) != -1);
+	break;
+      }
+      default: break;
+      }
+      if (found) {
+	llRegionSayTo(update_bee, -update_channel,
+		      "success|"+(string)cmd[1]+"|"+(string)cmd[2]);
+      } else {
+	llRegionSayTo(update_bee, -update_channel,
+		      "fail|"+(string)cmd[1]+"|"+(string)cmd[2]);
+      }
+      break;
+    }
     case "delete": {
       switch ((string) cmd[1]) {
       case "script": {
