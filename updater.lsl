@@ -122,6 +122,7 @@ default {
     version = (float) temp;
     item_key = xyzzy;
     channel = (integer) ("0x"+llGetSubString((string) llGetKey() ,-4,-1));
+    if (handle) llListenRemove(handle);
     handle = llListen(-channel, "", item_key, "");
     pin = (integer) ("0x"+llGetSubString((string) item_key,-2,-1)) +
       (channel & 0xFF00);
